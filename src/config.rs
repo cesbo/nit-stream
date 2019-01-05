@@ -9,7 +9,12 @@ use crate::{Instance, Multiplex, Service};
 fn parse_multiplex<R: Read>(instance: &mut Instance, config: &mut IniReader<R>) -> Result<()> {
     let mut multiplex = Multiplex::default();
     multiplex.codepage = instance.codepage;
-    // TODO: default options
+    multiplex.network_id = instance.network_id;
+    multiplex.nit_version = instance.nit_version;
+    multiplex.provider.push_str(&instance.provider);
+    multiplex.network.push_str(&instance.network);
+    multiplex.onid = instance.onid;
+    multiplex.enable = true;
 
     while let Some(e) = config.next() {
         match e? {
@@ -17,7 +22,13 @@ fn parse_multiplex<R: Read>(instance: &mut Instance, config: &mut IniReader<R>) 
             IniItem::Property(key, value) => {
                 match key.as_ref() {
                     "codepage" => multiplex.codepage = value.parse()?,
-                    // TODO: multiplex options
+                    "network_id" => multiplex.network_id = value.parse()?,
+                    "nit_version" => multiplex.nit_version = value.parse()?,
+                    "provider" => { multiplex.provider.clear(); multiplex.provider.push_str(&value); },
+                    "network" => { multiplex.network.clear(); multiplex.network.push_str(&value); },
+                    "onid" => multiplex.onid = value.parse()?,
+
+                    "enable" => multiplex.enable = value.parse().unwrap_or(false),
                     "name" => multiplex.name.push_str(&value),
                     "tsid" => multiplex.tsid = value.parse()?,
                     _ => {},

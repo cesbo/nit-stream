@@ -1,12 +1,13 @@
 use ini;
-use std::{result, io, fmt, num};
+use std::{result, io, fmt};
+use std::num::ParseIntError;
 
 #[derive(Debug)]
 pub enum Error {
     Custom(String),
     Ini(ini::Error),
     Io(io::Error),
-    ParseInt(num::ParseIntError),
+    ParseInt(ParseIntError),
 }
 
 pub type Result<T> = result::Result<T, Error>;
@@ -17,7 +18,7 @@ impl fmt::Display for Error {
             Error::Custom(ref e) => write!(f, "{}", e),
             Error::Ini(ref e) => ini::Error::fmt(e, f),
             Error::Io(ref e) => io::Error::fmt(e, f),
-            Error::ParseInt(ref e) => num::ParseIntError::fmt(e, f),
+            Error::ParseInt(ref e) => ParseIntError::fmt(e, f),
         }
     }
 }
@@ -46,8 +47,8 @@ impl From<io::Error> for Error {
     }
 }
 
-impl From<num::ParseIntError> for Error {
-    fn from(e: num::ParseIntError) -> Self {
+impl From<ParseIntError> for Error {
+    fn from(e: ParseIntError) -> Self {
         Error::ParseInt(e)
     }
 }
