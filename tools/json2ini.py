@@ -11,6 +11,37 @@ import collections
 stderr_print = functools.partial(print, file=sys.stderr)
 
 
+class Descriptor:
+    def __init__(self, name, keys):
+        """
+        :type name: str
+        :param name: Name of descriptor section.
+        :type keys: Iterable
+        :param keys: Sequence of keys.
+        """
+
+        self.name = name
+        self.keys = keys
+
+    def assemble(self, data):
+        """
+        Assembling data to write.
+
+        :type data: Mapping
+        :param data: Input data for processing.
+
+        :rtype: collections.OrderedDict
+        :return: Data to write.
+        """
+
+        return collections.OrderedDict(
+            zip(
+                self.keys,
+                (data[k] for k in self.keys)
+            )
+        )
+
+
 class Converter:
     MAIN = ('network_id', 'network_name', 'provider', 'nit_version', 'onid', 'textcode', 'country', 'offset')
     MAIN_MAP = {
@@ -18,19 +49,32 @@ class Converter:
         'textcode': 'codepage'
     }
     MULTIPLEX = ('name', 'tsid', 'enable')
+    # TODO: fec in dvb-c?
+    DVB_C = ('frequency', 'symbolrate', 'modulation')
+    DVB_S = DVB_C + ('polarization', 'position', 'fec')
 
     CAST = {
         bool: int
     }
 
-    def __init__(self, *configs):
+    def __init__(self, *configs, output_stream=sys.stdout):
         """
+        :type configs: Iterable
         :param configs: Sequence of config files paths.
+        :type output_stream: TextIOBase
+        :param output_stream: File-like object (stream) to result output.
         """
 
         self.configs = configs
+
         self.header = collections.OrderedDict()
         self.header.filled = False
+
+        self._descriptors = {
+            'S': Descriptor('dvb-s', self.DVB_S),
+            'C': Descriptor('dvb-c', self.DVB_C)
+        }
+        self.__print = functools.partial(print, file=output_stream)
 
     def process(self):
         """
@@ -79,6 +123,15 @@ class Converter:
 
                 self.write(multiplex, 'multiplex')
 
+                nit = item.get('nit_actual')
+                if nit:
+                    descriptor = self._descriptors.get(nit['type'])
+                    if descriptor:
+                        self.write(
+                            descriptor.assemble(nit),
+                            descriptor.name
+                        )
+
                 for service in item.get('sdt', ()):
                     self.write(service, 'service')
 
@@ -86,22 +139,22 @@ class Converter:
         """
         Write section to stdout.
 
-        :type data: dict
+        :type data: Mapping
         :param data: Section payload.
         :type section: str
         :param section: Section name.
         """
 
         if section:
-            print('[{}]'.format(section))
+            self.__print('[{}]'.format(section))
 
         for k, v in data.items():
             try:
                 v = self.CAST[type(v)](v)
             except KeyError:
                 pass
-            print('{} = {}'.format(k, v))
-        print()
+            self.__print('{} = {}'.format(k, v))
+        self.__print()
 
     def _fd_iter(self):
         for config in self.configs:
