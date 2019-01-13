@@ -8,6 +8,7 @@ import functools
 import collections
 
 
+inf = float('inf')
 stderr_print = functools.partial(print, file=sys.stderr)
 
 
@@ -34,11 +35,17 @@ class Descriptor:
         :return: Data to write.
         """
 
+        keys = []
+        values = []
+        for k, d in self.keys:
+            keys.append(k)
+            v = data.get(k, d)
+            if v is inf:
+                raise KeyError(k)
+            values.append(v)
+
         return collections.OrderedDict(
-            zip(
-                self.keys,
-                (data[k] for k in self.keys)
-            )
+            zip(keys, values)
         )
 
 
@@ -49,9 +56,16 @@ class Converter:
         'textcode': 'codepage'
     }
     MULTIPLEX = ('name', 'tsid', 'enable')
-    # TODO: fec in dvb-c?
-    DVB_C = ('frequency', 'symbolrate', 'modulation')
-    DVB_S = DVB_C + ('polarization', 'position', 'fec')
+    DVB_C = (
+        ('frequency', inf),
+        ('symbolrate', inf),
+        ('fec', 0),
+        ('modulation', 0)
+    )
+    DVB_S = DVB_C + (
+        ('polarization', inf),
+        ('position', inf)
+    )
 
     CAST = {
         bool: int
