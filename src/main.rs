@@ -1,16 +1,21 @@
 use std::{env, time, thread};
 
+use mpegts::{psi, textcode};
+
 mod error;
 use crate::error::{Error, Result};
 
 mod config;
 use crate::config::parse_config;
 
+
 include!(concat!(env!("OUT_DIR"), "/build.rs"));
+
 
 fn version() {
     println!("nit-stream v.{} commit:{}", env!("CARGO_PKG_VERSION"), COMMIT);
 }
+
 
 fn usage(program: &str) {
     println!(r#"Usage: {} CONFIG
@@ -24,6 +29,7 @@ CONFIG:
 "#, program);
 }
 
+
 #[derive(Default, Debug)]
 pub struct Instance {
     pub multiplex_list: Vec<Multiplex>,
@@ -35,6 +41,7 @@ pub struct Instance {
     pub network: String,
     pub onid: u16,
 }
+
 
 #[derive(Default, Debug)]
 pub struct Multiplex {
@@ -54,6 +61,7 @@ pub struct Multiplex {
     pub service_list: Vec<Service>,
 }
 
+
 #[derive(Default, Debug)]
 pub struct Service {
     pub name: String,
@@ -61,6 +69,7 @@ pub struct Service {
     pub service_type: u8,
     pub lcn: u16,
 }
+
 
 fn wrap() -> Result<()> {
     // Parse Options
@@ -80,8 +89,35 @@ fn wrap() -> Result<()> {
 
     let mut instance = Instance::default();
 
-    // Prase config
+    // Parse config
     parse_config(&mut instance, &arg)?;
+
+    // NIT
+    let mut nit = psi::Nit::default();
+    nit.table_id = 0x40;
+    nit.version = instance.nit_version;
+    nit.network_id = instance.network_id;
+
+    if ! instance.network.is_empty() {
+        nit.descriptors.push(
+            psi::Descriptor::Desc40(
+                psi::Desc40 {
+                    name: textcode::StringDVB::from_str(
+                        instance.network.as_str(),
+                        instance.codepage
+                    )
+                }
+            )
+        );
+    }
+
+    for multiplex in &instance.multiplex_list {
+        let mut item = psi::NitItem::default();
+        item.tsid = multiplex.tsid;
+        item.onid = multiplex.onid;
+
+        nit.items.push(item);
+    }
 
     // TODO: check configuration
     // TODO: Main loop
@@ -92,6 +128,7 @@ fn wrap() -> Result<()> {
         thread::sleep(loop_delay_ms);
     }
 }
+
 
 fn main() {
     if let Err(e) = wrap() {
