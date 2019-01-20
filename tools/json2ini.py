@@ -50,12 +50,12 @@ class Descriptor:
 
 
 class Converter:
-    MAIN = ('network_id', 'network_name', 'provider', 'nit_version', 'onid', 'textcode', 'country', 'offset')
-    MAIN_MAP = {
+    MAP = {
         'network_name': 'network',
         'textcode': 'codepage'
     }
-    MULTIPLEX = ('name', 'tsid', 'enable')
+    MAIN = ('network_id', 'network_name', 'provider', 'nit_version', 'onid', 'textcode', 'country', 'offset')
+    MULTIPLEX = ('name', 'tsid', 'onid', 'textcode', 'provider', 'enable')
     DVB_C = (
         ('frequency', inf),
         ('symbolrate', inf),
@@ -97,7 +97,7 @@ class Converter:
 
         for f in self._fd_iter():
             try:
-                data = json.loads(f.read(), object_pairs_hook=collections.OrderedDict)
+                data = json.load(f, object_pairs_hook=collections.OrderedDict)
             except json.JSONDecodeError as e:
                 stderr_print(e)
                 sys.exit(1)
@@ -113,27 +113,23 @@ class Converter:
                 if item['type'] != 'mpts':
                     continue
 
-                for i in self.MULTIPLEX:
-                    try:
-                        multiplex[i] = item[i]
-                    except KeyError:
-                        pass
-
-                for i in self.MAIN:
-                    try:
-                        k = self.MAIN_MAP.get(i, i)
-                        v = item[i]
-                        if not self.header.filled:
-                            self.header[k] = v
-                        else:
-                            if self.header[k] != v:
-                                multiplex[k] = v
-                    except KeyError:
-                        pass
-
                 if not self.header.filled:
+                    for i in self.MAIN:
+                        try:
+                            self.header[self.MAP.get(i, i)] = item[i]
+                        except KeyError:
+                            pass
                     self.header.filled = True
                     self.write(self.header)
+
+                for i in self.MULTIPLEX:
+                    try:
+                        k = self.MAP.get(i, i)
+                        v = item[i]
+                        if self.header.get(k) != v:
+                            multiplex[k] = v
+                    except KeyError:
+                        pass
 
                 self.write(multiplex, 'multiplex')
 
