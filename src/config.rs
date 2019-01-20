@@ -6,13 +6,9 @@ use ini::{IniReader, IniItem};
 use crate::error::{Error, Result};
 use crate::{Instance, Multiplex, Service};
 
+
 fn parse_multiplex<R: Read>(instance: &mut Instance, config: &mut IniReader<R>) -> Result<()> {
     let mut multiplex = Multiplex::default();
-    multiplex.codepage = instance.codepage;
-    multiplex.network_id = instance.network_id;
-    multiplex.nit_version = instance.nit_version;
-    multiplex.provider.push_str(&instance.provider);
-    multiplex.network.push_str(&instance.network);
     multiplex.onid = instance.onid;
     multiplex.enable = true;
 
@@ -21,16 +17,9 @@ fn parse_multiplex<R: Read>(instance: &mut Instance, config: &mut IniReader<R>) 
             IniItem::EndSection => break,
             IniItem::Property(key, value) => {
                 match key.as_ref() {
-                    "codepage" => multiplex.codepage = value.parse()?,
-                    "network_id" => multiplex.network_id = value.parse()?,
-                    "nit_version" => multiplex.nit_version = value.parse()?,
-                    "provider" => { multiplex.provider.clear(); multiplex.provider.push_str(&value); },
-                    "network" => { multiplex.network.clear(); multiplex.network.push_str(&value); },
-                    "onid" => multiplex.onid = value.parse()?,
-
-                    "enable" => multiplex.enable = value.parse().unwrap_or(false),
-                    "name" => multiplex.name.push_str(&value),
                     "tsid" => multiplex.tsid = value.parse()?,
+                    "onid" => multiplex.onid = value.parse()?,
+                    "enable" => multiplex.enable = value.parse().unwrap_or(false),
                     _ => {},
                 }
             },
@@ -41,6 +30,7 @@ fn parse_multiplex<R: Read>(instance: &mut Instance, config: &mut IniReader<R>) 
     instance.multiplex_list.push(multiplex);
     Ok(())
 }
+
 
 fn parse_service<R: Read>(instance: &mut Instance, config: &mut IniReader<R>) -> Result<()> {
     let multiplex = match instance.multiplex_list.last_mut() {
@@ -68,9 +58,14 @@ fn parse_service<R: Read>(instance: &mut Instance, config: &mut IniReader<R>) ->
     Ok(())
 }
 
+
 pub fn parse_config(instance: &mut Instance, path: &str) -> Result<()> {
     let config = File::open(path)?;
     let mut config = IniReader::new(BufReader::new(config));
+
+    instance.nit_version = 0;
+    instance.network_id = 1;
+    instance.onid = 1;
 
     while let Some(e) = config.next() {
         match e? {
@@ -81,7 +76,11 @@ pub fn parse_config(instance: &mut Instance, path: &str) -> Result<()> {
                 _ => {},
             },
             IniItem::Property(key, value) => match key.as_ref() {
+                "nit_version" => instance.nit_version = value.parse()?,
+                "network_id" => instance.network_id = value.parse()?,
+                "network" => instance.network.push_str(&value),
                 "codepage" => instance.codepage = value.parse()?,
+                "onid" => instance.onid = value.parse()?,
                 _ => {},
             },
             _ => {},
