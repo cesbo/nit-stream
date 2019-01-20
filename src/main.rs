@@ -32,33 +32,25 @@ CONFIG:
 
 #[derive(Default, Debug)]
 pub struct Instance {
-    pub multiplex_list: Vec<Multiplex>,
-
-    pub codepage: u8,
-    pub network_id: u16,
     pub nit_version: u8,
-    pub provider: String,
+    pub network_id: u16,
     pub network: String,
+    pub codepage: u8,
     pub onid: u16,
+
+    pub multiplex_list: Vec<Multiplex>
 }
 
 
 #[derive(Default, Debug)]
 pub struct Multiplex {
-    pub codepage: u8,
-    pub network_id: u16,
-    pub nit_version: u8,
-    pub provider: String,
-    pub network: String,
-    pub onid: u16,
-
-    pub enable: bool,
-    pub name: String,
     pub tsid: u16,
+    pub onid: u16,
+    pub enable: bool,
 
     // TODO: delivery system
 
-    pub service_list: Vec<Service>,
+    pub service_list: Vec<Service>
 }
 
 
@@ -112,11 +104,13 @@ fn wrap() -> Result<()> {
     }
 
     for multiplex in &instance.multiplex_list {
-        let mut item = psi::NitItem::default();
-        item.tsid = multiplex.tsid;
-        item.onid = multiplex.onid;
+        if multiplex.enable {
+            let mut item = psi::NitItem::default();
+            item.tsid = multiplex.tsid;
+            item.onid = multiplex.onid;
 
-        nit.items.push(item);
+            nit.items.push(item);
+        }
     }
 
     // TODO: check configuration
