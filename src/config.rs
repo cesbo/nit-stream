@@ -3,8 +3,9 @@ use std::io::{Read, BufReader};
 
 use ini::{IniReader, IniItem};
 
-use crate::error::{Error, Result};
 use crate::{Instance, Multiplex, Service};
+use crate::misc::Parse;
+use crate::error::{Error, Result};
 
 
 fn parse_multiplex<R: Read>(instance: &mut Instance, config: &mut IniReader<R>) -> Result<()> {
@@ -19,7 +20,7 @@ fn parse_multiplex<R: Read>(instance: &mut Instance, config: &mut IniReader<R>) 
                 match key.as_ref() {
                     "tsid" => multiplex.tsid = value.parse()?,
                     "onid" => multiplex.onid = value.parse()?,
-                    "enable" => multiplex.enable = value.parse().unwrap_or(false),
+                    "enable" => multiplex.enable = bool::int_parse(value),
                     _ => {},
                 }
             },

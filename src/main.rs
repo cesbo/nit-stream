@@ -8,6 +8,8 @@ use crate::error::{Error, Result};
 mod config;
 use crate::config::parse_config;
 
+mod misc;
+
 
 include!(concat!(env!("OUT_DIR"), "/build.rs"));
 
