@@ -50,9 +50,19 @@ pub struct Multiplex {
     pub onid: u16,
     pub enable: bool,
 
-    // TODO: delivery system
+    pub delivery: Delivery,
 
     pub service_list: Vec<Service>
+}
+
+
+#[derive(Default, Debug)]
+pub struct Delivery {
+    pub frequency: u32,
+    pub fec_outer: u8,
+    pub modulation: u8,
+    pub symbol_rate: u32,
+    pub fec: u8
 }
 
 

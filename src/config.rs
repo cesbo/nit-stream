@@ -2,8 +2,9 @@ use std::fs::File;
 use std::io::{Read, BufReader};
 
 use ini::{IniReader, IniItem};
+use mpegts::constants;
 
-use crate::{Instance, Multiplex, Service};
+use crate::{Instance, Multiplex, Delivery, Service};
 use crate::misc::Parse;
 use crate::error::{Error, Result};
 
@@ -29,6 +30,41 @@ fn parse_multiplex<R: Read>(instance: &mut Instance, config: &mut IniReader<R>) 
     }
 
     instance.multiplex_list.push(multiplex);
+    Ok(())
+}
+
+
+fn parse_delivery<R: Read>(instance: &mut Instance, config: &mut IniReader<R>) -> Result<()> {
+    let multiplex = match instance.multiplex_list.last_mut() {
+        Some(v) => v,
+        None => return Err(Error::from("multiplex section not found")),
+    };
+    let mut delivery = Delivery::default();
+
+    while let Some(e) = config.next() {
+        match e? {
+            IniItem::EndSection => break,
+            IniItem::Property(key, value) => {
+                match key.as_ref() {
+                    "frequency" => delivery.frequency = value.parse()?,
+                    "symbolrate" => delivery.symbol_rate = value.parse()?,
+                    "fec" => delivery.fec = value.parse()?,
+                    "modulation" => delivery.modulation = match value.as_str() {
+                        "QAM16" => constants::MODULATION_DVB_C_16_QAM,
+                        "QAM32" => constants::MODULATION_DVB_C_32_QAM,
+                        "QAM64" => constants::MODULATION_DVB_C_64_QAM,
+                        "QAM128" => constants::MODULATION_DVB_C_128_QAM,
+                        "QAM256" => constants::MODULATION_DVB_C_256_QAM,
+                        _ => constants::MODULATION_DVB_C_NOT_DEFINED
+                    },
+                    _ => {},
+                }
+            },
+            _ => {},
+        };
+    }
+
+    multiplex.delivery = delivery;
     Ok(())
 }
 
@@ -72,7 +108,7 @@ pub fn parse_config(instance: &mut Instance, path: &str) -> Result<()> {
         match e? {
             IniItem::StartSection(name) => match name.as_ref() {
                 "multiplex" => parse_multiplex(instance, &mut config)?,
-                // TODO: delivery system
+                "dvb-c" => parse_delivery(instance, &mut config)?,
                 "service" => parse_service(instance, &mut config)?,
                 _ => {},
             },
