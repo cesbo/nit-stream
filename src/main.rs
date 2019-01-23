@@ -121,6 +121,36 @@ fn wrap() -> Result<()> {
             item.tsid = multiplex.tsid;
             item.onid = multiplex.onid;
 
+            let d = &multiplex.delivery;
+            item.descriptors.push(
+                psi::Descriptor::Desc44(
+                    psi::Desc44 {
+                        frequency: d.frequency,
+                        fec_outer: d.fec_outer,
+                        modulation: d.modulation,
+                        symbol_rate: d.symbol_rate,
+                        fec: d.fec
+                    }
+                )
+            );
+
+            let mut desc_41 = psi::Desc41::default();
+            let mut desc_83 = psi::Desc83::default();
+            for service in &multiplex.service_list {
+                desc_41.items.push(
+                    (service.pnr, service.service_type)
+                );
+                desc_83.items.push(
+                    (service.pnr, 1, service.lcn)
+                );
+            }
+            item.descriptors.push(
+                psi::Descriptor::Desc41(desc_41)
+            );
+            item.descriptors.push(
+                psi::Descriptor::Desc83(desc_83)
+            );
+
             nit.items.push(item);
         }
     }
