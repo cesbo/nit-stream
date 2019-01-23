@@ -76,14 +76,17 @@ fn parse_service<R: Read>(instance: &mut Instance, config: &mut IniReader<R>) ->
     };
 
     let mut service = Service::default();
+    service.service_type = 1;
 
     while let Some(e) = config.next() {
         match e? {
             IniItem::EndSection => break,
             IniItem::Property(key, value) => {
                 match key.as_ref() {
-                    "name" => service.name.push_str(&value),
+                    "type" => service.service_type = value.parse()?,
                     "pnr" => service.pnr = value.parse()?,
+                    "lcn" => service.lcn = value.parse()?,
+                    "name" => service.name.push_str(&value),
                     _ => {},
                 }
             },
