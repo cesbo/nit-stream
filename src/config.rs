@@ -4,7 +4,7 @@ use std::io::{Read, BufReader};
 use ini::{IniReader, IniItem};
 use mpegts::constants;
 
-use crate::{Instance, Multiplex, Delivery, Service};
+use crate::{Instance, Multiplex, Delivery, Service, Output};
 use crate::misc::Parse;
 use crate::error::{Error, Result};
 
@@ -116,6 +116,7 @@ pub fn parse_config(instance: &mut Instance, path: &str) -> Result<()> {
                 _ => {},
             },
             IniItem::Property(key, value) => match key.as_ref() {
+                "output" => instance.output = Output::open(addr)?,
                 "nit_version" => instance.nit_version = value.parse()?,
                 "network_id" => instance.network_id = value.parse()?,
                 "network" => instance.network.push_str(&value),

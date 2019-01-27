@@ -1,6 +1,7 @@
 use std::{env, time, thread};
 
-use mpegts::{psi, textcode};
+use udp;
+use mpegts::{ts, psi, textcode, psi::PsiDemux};
 
 mod error;
 use crate::error::{Error, Result};
@@ -32,8 +33,54 @@ CONFIG:
 }
 
 
+#[derive(Debug)]
+pub enum Output {
+    None,
+    Udp(udp::UdpSocket),
+}
+
+impl Default for Output {
+    fn default() -> Self {
+        Output::None
+    }
+}
+
+impl Output {
+    pub fn open(addr: &str) -> Result<Self> {
+        let dst = addr.splitn(2, "://").collect::<Vec<&str>>();
+        match dst[0] {
+            "udp" => {
+                let s = udp::UdpSocket::open(dst[1])?;
+                Ok(Output::Udp(s))
+            },
+            _ => {
+                Err(Error::from(format!("unknown output type [{}]", dst[0])))
+            }
+        }
+    }
+
+    pub fn send(&self, data: &[u8]) -> Result<()> {
+        match self {
+            Output::Udp(ref udp) => {
+                udp.sendto(data)?;
+            },
+            Output::None => {},
+        };
+        Ok(())
+    }
+
+    pub fn is_open(&self) -> bool {
+        match self {
+            Output::None => false,
+            _ => true,
+        }
+    }
+}
+
+
 #[derive(Default, Debug)]
 pub struct Instance {
+    pub output: Output,
     pub nit_version: u8,
     pub network_id: u16,
     pub network: String,
@@ -158,6 +205,13 @@ fn wrap() -> Result<()> {
     // TODO: check configuration
     // TODO: Main loop
 
+    let mut cc = 0;
+    let mut ts = Vec::<u8>::new();
+
+    nit.demux(psi::NIT_PID, &mut cc, &mut ts);
+    let pps = time::Duration::from_nanos(
+        1_000_000_000_u64 / (((6 + ts.len() / ts::PACKET_SIZE) / 7) as u64)
+    );
     let loop_delay_ms = time::Duration::from_millis(250);
 
     loop {
