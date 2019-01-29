@@ -50,7 +50,8 @@ impl Output {
         let dst = addr.splitn(2, "://").collect::<Vec<&str>>();
         match dst[0] {
             "udp" => {
-                let s = udp::UdpSocket::open(dst[1])?;
+                let mut s = udp::UdpSocket::default();
+                s.open(dst[1])?;
                 Ok(Output::Udp(s))
             },
             _ => {
