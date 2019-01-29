@@ -1,4 +1,4 @@
-use std::{env, time, thread};
+use std::{env, cmp, time, thread};
 
 use udp;
 use mpegts::{ts, psi, textcode, psi::PsiDemux};
@@ -203,20 +203,25 @@ fn wrap() -> Result<()> {
         }
     }
 
-    // TODO: check configuration
-    // TODO: Main loop
-
     let mut cc = 0;
     let mut ts = Vec::<u8>::new();
 
-    nit.demux(psi::NIT_PID, &mut cc, &mut ts);
-    let pps = time::Duration::from_nanos(
-        1_000_000_000_u64 / (((6 + ts.len() / ts::PACKET_SIZE) / 7) as u64)
-    );
-    let loop_delay_ms = time::Duration::from_millis(250);
-
     loop {
-        thread::sleep(loop_delay_ms);
+        nit.demux(psi::NIT_PID, &mut cc, &mut ts);
+        let pps = time::Duration::from_nanos(
+            1_000_000_000_u64 / (((6 + ts.len() / ts::PACKET_SIZE) / 7) as u64)
+        );
+
+        let mut skip = 0;
+        while skip < ts.len() {
+            let pkt_len = cmp::min(ts.len() - skip, 1316);
+            let next = skip + pkt_len;
+            instance.output.send(&ts[skip..next]).unwrap();
+            thread::sleep(pps);
+            skip = next;
+        }
+
+        ts.clear();
     }
 }
 
