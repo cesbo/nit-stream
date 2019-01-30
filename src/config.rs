@@ -5,7 +5,6 @@ use ini::{IniReader, IniItem};
 use mpegts::constants;
 
 use crate::{Instance, Multiplex, Delivery, Service, Output};
-use crate::misc::Parse;
 use crate::error::{Error, Result};
 
 
@@ -21,7 +20,7 @@ fn parse_multiplex<R: Read>(instance: &mut Instance, config: &mut IniReader<R>) 
                 match key.as_ref() {
                     "tsid" => multiplex.tsid = value.parse()?,
                     "onid" => multiplex.onid = value.parse()?,
-                    "enable" => multiplex.enable = bool::int_parse(value),
+                    "enable" => multiplex.enable = value.parse().unwrap_or(false),
                     _ => {},
                 }
             },

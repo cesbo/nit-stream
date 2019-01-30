@@ -68,7 +68,7 @@ class Converter:
     )
 
     CAST = {
-        bool: int
+        bool: lambda x: ('false', 'true')[x]
     }
 
     def __init__(self, *configs, output_stream=sys.stdout):
