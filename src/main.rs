@@ -1,6 +1,6 @@
 use std::{env, cmp, time, thread};
 
-use udp;
+use udp::UdpSocket;
 use mpegts::{ts, psi, textcode, psi::PsiDemux};
 
 mod error;
@@ -48,8 +48,7 @@ impl Output {
         let dst = addr.splitn(2, "://").collect::<Vec<&str>>();
         match dst[0] {
             "udp" => {
-                let mut s = udp::UdpSocket::default();
-                s.open(dst[1])?;
+                let s = UdpSocket::open(dst[1])?;
                 Ok(Output::Udp(s))
             },
             _ => {
@@ -171,7 +170,7 @@ fn wrap() -> Result<()> {
             item.descriptors.push(
                 psi::Descriptor::Desc44(
                     psi::Desc44 {
-                        frequency: d.frequency,
+                        frequency: d.frequency * 1000000,
                         fec_outer: d.fec_outer,
                         modulation: d.modulation,
                         symbol_rate: d.symbol_rate,
