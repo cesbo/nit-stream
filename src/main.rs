@@ -137,6 +137,9 @@ fn wrap() -> Result<()> {
     };
 
     let mut instance = Instance::default();
+    instance.nit_version = 0;
+    instance.network_id = 1;
+    instance.onid = 1;
 
     // Parse config
     parse_config(&mut instance, &arg)?;

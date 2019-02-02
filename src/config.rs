@@ -79,10 +79,6 @@ fn parse_service(instance: &mut Instance, section: &Section) -> Result<()> {
 
 
 fn parse_base(instance: &mut Instance, section: &Section) -> Result<()> {
-    instance.nit_version = 0;
-    instance.network_id = 1;
-    instance.onid = 1;
-
     for (key, value) in section {
         match key.as_ref() {
             "output" => instance.output = Output::open(&value)?,
