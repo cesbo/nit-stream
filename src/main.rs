@@ -200,6 +200,8 @@ fn wrap() -> Result<()> {
         }
     }
 
+    nit.items.sort_by(|a, b| a.tsid.cmp(&b.tsid));
+
     let mut cc = 0;
     let mut ts = Vec::<u8>::new();
 
