@@ -1,13 +1,12 @@
 use std::{env, cmp, time, thread};
 
 use udp::UdpSocket;
-use mpegts::{ts, psi, textcode, psi::PsiDemux};
+use mpegts::{ts, psi, textcode, psi::PsiDemux, constants};
 
 mod error;
 use crate::error::{Error, Result};
 
-mod config;
-use crate::config::parse_config;
+use config::Config;
 
 
 include!(concat!(env!("OUT_DIR"), "/build.rs"));
@@ -34,7 +33,7 @@ CONFIG:
 #[derive(Debug)]
 pub enum Output {
     None,
-    Udp(udp::UdpSocket),
+    Udp(UdpSocket),
 }
 
 impl Default for Output {
@@ -76,50 +75,6 @@ impl Output {
 }
 
 
-#[derive(Default, Debug)]
-pub struct Instance {
-    pub output: Output,
-    pub nit_version: u8,
-    pub network_id: u16,
-    pub network: String,
-    pub codepage: u8,
-    pub onid: u16,
-
-    pub multiplex_list: Vec<Multiplex>
-}
-
-
-#[derive(Default, Debug)]
-pub struct Multiplex {
-    pub tsid: u16,
-    pub onid: u16,
-    pub enable: bool,
-
-    pub delivery: Delivery,
-
-    pub service_list: Vec<Service>
-}
-
-
-#[derive(Default, Debug)]
-pub struct Delivery {
-    pub frequency: u32,
-    pub fec_outer: u8,
-    pub modulation: u8,
-    pub symbol_rate: u32,
-    pub fec: u8
-}
-
-
-#[derive(Default, Debug)]
-pub struct Service {
-    pub name: String,
-    pub pnr: u16,
-    pub service_type: u8,
-    pub lcn: u16,
-}
-
-
 fn wrap() -> Result<()> {
     // Parse Options
     let mut args = env::args();
@@ -136,68 +91,86 @@ fn wrap() -> Result<()> {
         },
     };
 
-    let mut instance = Instance::default();
+    let mut output;
 
     // Parse config
-    parse_config(&mut instance, &arg)?;
+    let config = Config::open(&arg)?;
 
-    // NIT
     let mut nit = psi::Nit::default();
     nit.table_id = 0x40;
-    nit.version = instance.nit_version;
-    nit.network_id = instance.network_id;
 
-    if ! instance.network.is_empty() {
+    match config.get_str("output") {
+        Some(v) => output = Output::open(v)?,
+        None => return Err(Error::from("output not defined")),
+    };
+
+    nit.version = config.get_number("nit_version", 0)?;
+    nit.network_id = config.get_number("network_id", 1)?;
+
+    let onid = config.get_number("onid", 1)?;
+    let codepage = config.get_number("codepage", 0)?;
+
+    if let Some(v) = config.get_str("network") {
         nit.descriptors.push(
-            psi::Descriptor::Desc40(
-                psi::Desc40 {
-                    name: textcode::StringDVB::from_str(
-                        instance.network.as_str(),
-                        instance.codepage
-                    )
-                }
-            )
+            psi::Desc40 {
+                name: textcode::StringDVB::from_str(v, codepage)
+            }
         );
     }
 
-    for multiplex in &instance.multiplex_list {
-        if multiplex.enable {
-            let mut item = psi::NitItem::default();
-            item.tsid = multiplex.tsid;
-            item.onid = multiplex.onid;
-
-            let d = &multiplex.delivery;
-            item.descriptors.push(
-                psi::Descriptor::Desc44(
-                    psi::Desc44 {
-                        frequency: d.frequency * 1000000,
-                        fec_outer: d.fec_outer,
-                        modulation: d.modulation,
-                        symbol_rate: d.symbol_rate,
-                        fec: d.fec
-                    }
-                )
-            );
-
-            let mut desc_41 = psi::Desc41::default();
-            let mut desc_83 = psi::Desc83::default();
-            for service in &multiplex.service_list {
-                desc_41.items.push(
-                    (service.pnr, service.service_type)
-                );
-                desc_83.items.push(
-                    (service.pnr, 1, service.lcn)
-                );
-            }
-            item.descriptors.push(
-                psi::Descriptor::Desc41(desc_41)
-            );
-            item.descriptors.push(
-                psi::Descriptor::Desc83(desc_83)
-            );
-
-            nit.items.push(item);
+    for s in config.iter() {
+        if s.get_name() != "multiplex" || false == s.get_bool("enable", true)? {
+            continue;
         }
+
+        let mut item = psi::NitItem::default();
+        item.tsid = s.get_number("tsid", 1)?;
+        item.onid = s.get_number("onid", onid)?;
+
+        let mut desc_41 = psi::Desc41::default();
+        let mut desc_83 = psi::Desc83::default();
+
+        for s in s.iter() {
+            match s.get_name() {
+                "dvb-c" => {
+                    item.descriptors.push(
+                        psi::Desc44 {
+                            frequency: s.get_number("frequency", 0)? * 1_000_000,
+                            fec_outer: 0,
+                            modulation: match s.get_str("modulation").unwrap_or("") {
+                                "QAM16" => constants::MODULATION_DVB_C_16_QAM,
+                                "QAM32" => constants::MODULATION_DVB_C_32_QAM,
+                                "QAM64" => constants::MODULATION_DVB_C_64_QAM,
+                                "QAM128" => constants::MODULATION_DVB_C_128_QAM,
+                                "QAM256" => constants::MODULATION_DVB_C_256_QAM,
+                                _ => constants::MODULATION_DVB_C_NOT_DEFINED
+                            },
+                            symbol_rate: s.get_number("symbolrate", 0)?,
+                            fec: s.get_number("fec", 0)?,
+                        }
+                    );
+                },
+                "service" => {
+                    let pnr: u16 = s.get_number("pnr", 0)?;
+                    let service_type: u8 = s.get_number("type", 1)?;
+                    let lcn: u16 = s.get_number("lcn", 0)?;
+
+                    desc_41.items.push((pnr, service_type));
+                    desc_83.items.push((pnr, 1, lcn));
+                },
+                _ => {},
+            }
+        }
+
+        if ! desc_41.items.is_empty() {
+            item.descriptors.push(desc_41);
+        }
+
+        if ! desc_83.items.is_empty() {
+            item.descriptors.push(desc_83);
+        }
+
+        nit.items.push(item);
     }
 
     nit.items.sort_by(|a, b| a.tsid.cmp(&b.tsid));
@@ -215,7 +188,7 @@ fn wrap() -> Result<()> {
         while skip < ts.len() {
             let pkt_len = cmp::min(ts.len() - skip, 1316);
             let next = skip + pkt_len;
-            instance.output.send(&ts[skip..next]).unwrap();
+            output.send(&ts[skip..next]).unwrap();
             thread::sleep(pps);
             skip = next;
         }
