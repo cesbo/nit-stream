@@ -85,8 +85,8 @@ class Converter:
         self.header.filled = False
 
         self._descriptors = {
-            'S': Descriptor('## dvb-s', self.DVB_S),
-            'C': Descriptor('## dvb-c', self.DVB_C)
+            'S': Descriptor('[multiplex/dvb-s]', self.DVB_S),
+            'C': Descriptor('[multiplex/dvb-c]', self.DVB_C)
         }
         self.__print = functools.partial(print, file=output_stream)
 
@@ -131,7 +131,7 @@ class Converter:
                     except KeyError:
                         pass
 
-                self.write(multiplex, '# multiplex')
+                self.write(multiplex, '[multiplex]')
 
                 nit = item.get('nit_actual')
                 if nit:
@@ -143,7 +143,7 @@ class Converter:
                         )
 
                 for service in item.get('sdt', ()):
-                    self.write(service, '## service')
+                    self.write(service, '[multiplex/service]')
 
     def write(self, data, section=None):
         """
