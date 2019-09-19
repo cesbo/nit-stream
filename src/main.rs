@@ -211,7 +211,7 @@ fn wrap() -> Result<()> {
         },
     };
 
-    let mut output;
+    let output;
 
     // Parse config
     let config = Config::open(&arg)?;
@@ -220,18 +220,18 @@ fn wrap() -> Result<()> {
     let mut nit = psi::Nit::default();
     nit.table_id = 0x40;
 
-    match config.get_str("output") {
+    match config.get("output") {
         Some(v) => output = Output::open(v)?,
         None => return Err(Error::from("output not defined")),
     };
 
-    nit.version = config.get("nit_version", 0)?;
-    nit.network_id = config.get("network_id", 1)?;
+    nit.version = config.get("nit_version").unwrap_or(0);
+    nit.network_id = config.get("network_id").unwrap_or(1);
 
-    let onid = config.get("onid", 1)?;
-    let codepage = config.get("codepage", 0)?;
+    let onid = config.get("onid").unwrap_or(1);
+    let codepage = config.get("codepage").unwrap_or(0);
 
-    if let Some(v) = config.get_str("network") {
+    if let Some(v) = config.get("network") {
         nit.descriptors.push(
             psi::Desc40 {
                 name: textcode::StringDVB::from_str(v, codepage)
@@ -240,13 +240,13 @@ fn wrap() -> Result<()> {
     }
 
     for s in config.iter() {
-        if s.get_name() != "multiplex" || false == s.get("enable", true)? {
+        if s.get_name() != "multiplex" || false == s.get("enable").unwrap_or(true) {
             continue;
         }
 
         let mut item = psi::NitItem::default();
-        item.tsid = s.get("tsid", 1)?;
-        item.onid = s.get("onid", onid)?;
+        item.tsid = s.get("tsid").unwrap_or(1);
+        item.onid = s.get("onid").unwrap_or(onid);
 
         let mut desc_41 = psi::Desc41::default();
         let mut desc_83 = psi::Desc83::default();
@@ -256,9 +256,9 @@ fn wrap() -> Result<()> {
                 "dvb-c" => {
                     item.descriptors.push(
                         psi::Desc44 {
-                            frequency: s.get("frequency", 0)? * 1_000_000,
+                            frequency: s.get("frequency").unwrap_or(0) * 1_000_000,
                             fec_outer: 0,
-                            modulation: match s.get_str("modulation").unwrap_or("") {
+                            modulation: match s.get("modulation").unwrap_or("") {
                                 "QAM16" => constants::MODULATION_DVB_C_16_QAM,
                                 "QAM32" => constants::MODULATION_DVB_C_32_QAM,
                                 "QAM64" => constants::MODULATION_DVB_C_64_QAM,
@@ -266,18 +266,25 @@ fn wrap() -> Result<()> {
                                 "QAM256" => constants::MODULATION_DVB_C_256_QAM,
                                 _ => constants::MODULATION_DVB_C_NOT_DEFINED
                             },
-                            symbol_rate: s.get("symbolrate", 0)?,
-                            fec: s.get("fec", 0)?,
+                            symbol_rate: s.get("symbolrate").unwrap_or(0),
+                            fec: s.get("fec").unwrap_or(0),
                         }
                     );
                 },
                 "service" => {
-                    let pnr: u16 = s.get("pnr", 0)?;
-                    let service_type: u8 = s.get("type", 1)?;
-                    let lcn: u16 = s.get("lcn", 0)?;
+                    let service_id: u16 = s.get("pnr").unwrap_or(0);
+                    let service_type: u8 = s.get("type").unwrap_or(1);
+                    let lcn: u16 = s.get("lcn").unwrap_or(0);
 
-                    desc_41.items.push((pnr, service_type));
-                    desc_83.items.push((pnr, 1, lcn));
+                    desc_41.items.push(psi::Desc41i {
+                        service_id,
+                        service_type
+                    });
+                    desc_83.items.push(psi::Desc83i {
+                        service_id,
+                        visible: 1,
+                        lcn
+                    });
                 },
                 _ => {},
             }
