@@ -6,9 +6,9 @@ build = "src/build.rs"
 edition = "2018"
 
 [dependencies]
-config = { path = "../libconfig" }
-udp = { path = "../libudp" }
-mpegts = { path = "../libmpegts" }
+config = { git = "ssh://git@github.com/cesbo/libconfig.git", branch = "master" }
+udp = { git = "ssh://git@github.com/cesbo/libudp.git", branch = "master" }
+mpegts = { git = "ssh://git@github.com/cesbo/libmpegts.git", branch = "master" }
 
 [profile.release]
 panic = "abort"
